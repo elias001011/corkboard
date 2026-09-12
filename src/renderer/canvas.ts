@@ -48,12 +48,15 @@ export function centerOnContent() {
 
 export function initCanvas() {
   viewportEl.addEventListener("wheel", (e) => {
+    // Rolar dentro de um campo de texto em edição (com barra de rolagem
+    // própria) não deve mover/zoomar o quadro inteiro por baixo dele.
+    if ((e.target as Element).closest?.("textarea, input")) return;
     e.preventDefault();
     const r = viewportEl.getBoundingClientRect();
     const mx = e.clientX - r.left, my = e.clientY - r.top;
     if (e.ctrlKey || !e.shiftKey) {
       const factor = Math.exp(-e.deltaY * 0.0015);
-      const nz = Math.min(4, Math.max(0.1, view.zoom * factor));
+      const nz = Math.min(8, Math.max(0.1, view.zoom * factor));
       view.x = mx - ((mx - view.x) * nz) / view.zoom;
       view.y = my - ((my - view.y) * nz) / view.zoom;
       view.zoom = nz;
@@ -67,7 +70,10 @@ export function initCanvas() {
   viewportEl.addEventListener("pointerdown", (e) => {
     const onEmpty = e.target === viewportEl || e.target === worldEl || (e.target as Element).closest?.(".layer") === e.target;
     const middle = e.button === 1;
-    if (!(middle || (e.button === 0 && onEmpty && state.tool.kind === "select"))) return;
+    // Com um card em edição, só o botão do meio navega — clique esquerdo
+    // perto do texto não deve puxar o quadro embaixo dele.
+    const editingNow = document.activeElement?.tagName === "TEXTAREA";
+    if (!(middle || (!editingNow && e.button === 0 && onEmpty && state.tool.kind === "select"))) return;
     panning = { sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
     viewportEl.setPointerCapture(e.pointerId);
     viewportEl.classList.add("panning");

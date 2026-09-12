@@ -12,6 +12,8 @@ Quadro de investigação local, inspirado nos painéis de detetive dos filmes e 
 - **Desenhos** sobre o quadro para circular cards ou marcar áreas.
 - **Vários casos** (investigações), cada um com seu quadro.
 - **Desfazer/refazer** ilimitado dentro da sessão (`Ctrl+Z` / `Ctrl+Shift+Z`).
+- **Anotações subjetivas reposicionáveis**: evitam ficar em cima de ligações (escolhem lado livre) e podem ser arrastadas/redimensionadas livremente.
+- **Super títulos** com `##` (grande, em destaque) além do título normal `#` e subtítulo `###`.
 - **Backup** exportar/importar em um único `.json` (com fotos embutidas).
 - **Export para IA**: `.zip` com um `.md` por quadro (numerados, com sub-itens `NN.1`, ligações e datas), pasta `imagens/` renomeada e um `CASO COMPLETO.md` para colar num chat.
 
@@ -38,7 +40,7 @@ No lightbox: `←` `→` navegar · `C` círculo · `S` seta · `P` caneta · `R
 Baixe o `.deb` da [página de releases](../../releases) e:
 
 ```bash
-sudo apt install ./corkboard_1.0.2_amd64.deb
+sudo apt install ./corkboard_1.0.3_amd64.deb
 ```
 
 Os dados ficam em `~/.config/corkboard/` (IndexedDB do Chromium). Faça backups pelo menu.

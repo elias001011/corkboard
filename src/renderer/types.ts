@@ -20,6 +20,11 @@ export interface Annotation {
   text: string;
   createdAt: number;
   infoDate?: string;
+  /** Posição/tamanho manual (px, relativo ao quadro pai). Ausente = posição automática. */
+  dx?: number;
+  dy?: number;
+  w?: number;
+  h?: number;
 }
 
 export type NodeType = "note" | "photos";

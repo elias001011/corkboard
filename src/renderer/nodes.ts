@@ -1,4 +1,5 @@
 import { toWorld, view } from "./canvas";
+import { edgesOf } from "./edges";
 import { renderMarkdown } from "./markdown";
 import { formatDate } from "./modal";
 import { addPhotosToNode } from "./photos";
@@ -6,8 +7,11 @@ import { state } from "./state";
 import type { Annotation, BoardNode } from "./types";
 
 const nodesEl = document.getElementById("nodes") as HTMLDivElement;
+const underEl = document.getElementById("under") as unknown as SVGSVGElement;
 const els = new Map<string, HTMLDivElement>();
+const annotConnectors = new Map<string, SVGLineElement>();
 let editing: string | null = null;
+let editingAnnot: string | null = null;
 
 export function nodeEl(id: string) {
   return els.get(id);
@@ -47,6 +51,7 @@ function renderBody(n: BoardNode, body: HTMLDivElement) {
       more.textContent = `+${n.photoIds.length - max + 1}`;
       t.append(more);
     }
+    t.addEventListener("pointerdown", (e) => e.stopPropagation());
     t.onclick = (e) => {
       e.stopPropagation();
       state.emit("open-lightbox", { nodeId: n.id, index: i });
@@ -62,25 +67,174 @@ function renderBody(n: BoardNode, body: HTMLDivElement) {
   }
 }
 
-function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
-  wrap.innerHTML = "";
-  for (const a of n.annotations) {
-    const d = document.createElement("div");
-    d.className = `annot ${a.kind}`;
-    d.dataset.annot = a.id;
-    d.innerHTML = `<div class="kind">${a.kind === "update" ? "Atualização" : "Contradição"}</div><div class="text">${renderMarkdown(a.text)}</div><div class="dates">${datesHtml(a.createdAt, a.infoDate)}</div>`;
-    d.ondblclick = (e) => {
-      e.stopPropagation();
-      editAnnotation(n.id, a.id);
-    };
-    d.oncontextmenu = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      state.emit("ctx", { kind: "annot", nodeId: n.id, annotId: a.id, x: e.clientX, y: e.clientY });
-    };
-    d.onpointerdown = (e) => e.stopPropagation();
-    wrap.append(d);
+const ANNOT_W = 210;
+const ANNOT_GAP = 26;
+const ANNOT_STACK_GAP = 10;
+
+type Side = "left" | "right";
+
+/** Lado (esquerda/direita) menos "ocupado" por ligações já saindo deste quadro. */
+function pickSide(n: BoardNode): Side {
+  let right = false, left = false;
+  for (const e of edgesOf(n.id)) {
+    const otherId = e.from === n.id ? e.to : e.from;
+    const other = state.nodes.get(otherId);
+    if (!other) continue;
+    const dx = other.x + other.w / 2 - (n.x + n.w / 2);
+    const dy = other.y + other.h / 2 - (n.y + n.h / 2);
+    if (Math.abs(dx) < Math.abs(dy)) continue; // ligação predominantemente vertical: não conta pro lado
+    if (dx >= 0) right = true;
+    else left = true;
   }
+  if (right && !left) return "left";
+  if (left && !right) return "right";
+  return "right";
+}
+
+/** Ponto de conexão nas bordas mais próximas entre o quadro e a anotação (mesma lógica das ligações). */
+function connectorPoints(n: BoardNode, ax: number, ay: number, aw: number, ah: number) {
+  const ncx = n.x + n.w / 2, ncy = n.y + n.h / 2;
+  const acx = ax + aw / 2, acy = ay + ah / 2;
+  const dx = acx - ncx, dy = acy - ncy;
+  const p1 = Math.abs(dx) * n.h > Math.abs(dy) * n.w ? { x: dx > 0 ? n.x + n.w : n.x, y: ncy } : { x: ncx, y: dy > 0 ? n.y + n.h : n.y };
+  const p2 = Math.abs(dx) * ah > Math.abs(dy) * aw ? { x: dx > 0 ? ax : ax + aw, y: acy } : { x: acx, y: dy > 0 ? ay : ay + ah };
+  return { p1, p2 };
+}
+
+function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
+  const side = pickSide(n);
+  let autoIndex = 0;
+  const seen = new Set<string>();
+  for (const [i, a] of n.annotations.entries()) {
+    seen.add(a.id);
+    let el = wrap.querySelector<HTMLDivElement>(`[data-annot="${a.id}"]`);
+    if (!el) {
+      el = document.createElement("div");
+      el.dataset.annot = a.id;
+      el.innerHTML = `<div class="kind"></div><div class="text"></div><div class="dates"></div><div class="grip"></div>`;
+      wireAnnot(el, n.id);
+      wrap.append(el);
+    }
+    el.className = `annot ${a.kind}`;
+    el.querySelector<HTMLDivElement>(".kind")!.textContent = a.kind === "update" ? "Atualização" : "Contradição";
+    if (editingAnnot !== a.id) el.querySelector<HTMLDivElement>(".text")!.innerHTML = renderMarkdown(a.text);
+    el.querySelector<HTMLDivElement>(".dates")!.innerHTML = datesHtml(a.createdAt, a.infoDate);
+
+    const w = a.w ?? ANNOT_W;
+    const autoX = side === "right" ? n.w + ANNOT_GAP : -(w + ANNOT_GAP);
+    const x = a.dx ?? autoX;
+    const y = a.dy ?? autoIndex * (el.offsetHeight + ANNOT_STACK_GAP || 110);
+    if (a.dx === undefined) autoIndex++;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${w}px`;
+    if (a.h !== undefined) {
+      el.style.height = `${a.h}px`;
+      el.style.overflowY = "auto";
+    } else {
+      el.style.height = "";
+      el.style.overflowY = "visible";
+    }
+
+    const h = a.h ?? el.offsetHeight ?? 90;
+    const { p1, p2 } = connectorPoints(n, x + n.x, y + n.y, w, h);
+    let line = annotConnectors.get(a.id);
+    if (!line) {
+      line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("stroke-dasharray", "5 4");
+      line.setAttribute("stroke-width", "1");
+      annotConnectors.set(a.id, line);
+      underEl.append(line);
+    }
+    line.setAttribute("x1", String(p1.x));
+    line.setAttribute("y1", String(p1.y));
+    line.setAttribute("x2", String(p2.x));
+    line.setAttribute("y2", String(p2.y));
+    line.setAttribute("stroke", a.kind === "update" ? "#e0b24a" : "#e05a4a");
+  }
+  for (const el of [...wrap.children] as HTMLDivElement[]) {
+    if (!seen.has(el.dataset.annot!)) el.remove();
+  }
+  for (const [id, line] of [...annotConnectors]) {
+    if (!seen.has(id)) {
+      line.remove();
+      annotConnectors.delete(id);
+    }
+  }
+}
+
+function wireAnnot(el: HTMLDivElement, nodeId: string) {
+  const annotId = el.dataset.annot!;
+  el.addEventListener("dblclick", (e) => {
+    if ((e.target as Element).closest(".kind, .grip")) return;
+    e.stopPropagation();
+    editAnnotation(nodeId, annotId);
+  });
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.emit("ctx", { kind: "annot", nodeId, annotId, x: e.clientX, y: e.clientY });
+  });
+  el.addEventListener("pointerdown", (e) => e.stopPropagation());
+  el.querySelector<HTMLDivElement>(".kind")!.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    startAnnotDrag(e, nodeId, annotId);
+  });
+  el.querySelector<HTMLDivElement>(".grip")!.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    startAnnotResize(e, nodeId, annotId);
+  });
+}
+
+function startAnnotDrag(e: PointerEvent, nodeId: string, annotId: string) {
+  const n = state.nodes.get(nodeId);
+  const a = n?.annotations.find((x) => x.id === annotId);
+  const el = els.get(nodeId)?.querySelector<HTMLDivElement>(`[data-annot="${annotId}"]`);
+  if (!n || !a || !el) return;
+  const start = toWorld(e.clientX, e.clientY);
+  const ox = a.dx ?? el.offsetLeft, oy = a.dy ?? el.offsetTop;
+  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  const move = (ev: PointerEvent) => {
+    const p = toWorld(ev.clientX, ev.clientY);
+    a.dx = Math.round(ox + (p.x - start.x));
+    a.dy = Math.round(oy + (p.y - start.y));
+    renderNode(nodeId);
+  };
+  const up = () => {
+    (e.target as HTMLElement).removeEventListener("pointermove", move);
+    (e.target as HTMLElement).removeEventListener("pointerup", up);
+    state.saveNode(n);
+  };
+  (e.target as HTMLElement).addEventListener("pointermove", move);
+  (e.target as HTMLElement).addEventListener("pointerup", up);
+}
+
+function startAnnotResize(e: PointerEvent, nodeId: string, annotId: string) {
+  const n = state.nodes.get(nodeId);
+  const a = n?.annotations.find((x) => x.id === annotId);
+  const el = els.get(nodeId)?.querySelector<HTMLDivElement>(`[data-annot="${annotId}"]`);
+  if (!n || !a || !el) return;
+  // Materializa a posição/tamanho automáticos antes de redimensionar, senão o card "pula".
+  if (a.dx === undefined) a.dx = el.offsetLeft;
+  if (a.dy === undefined) a.dy = el.offsetTop;
+  const start = toWorld(e.clientX, e.clientY);
+  const ow = a.w ?? el.offsetWidth, oh = a.h ?? el.offsetHeight;
+  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  const move = (ev: PointerEvent) => {
+    const p = toWorld(ev.clientX, ev.clientY);
+    a.w = Math.max(140, Math.round(ow + p.x - start.x));
+    a.h = Math.max(50, Math.round(oh + p.y - start.y));
+    renderNode(nodeId);
+  };
+  const up = () => {
+    (e.target as HTMLElement).removeEventListener("pointermove", move);
+    (e.target as HTMLElement).removeEventListener("pointerup", up);
+    state.saveNode(n);
+  };
+  (e.target as HTMLElement).addEventListener("pointermove", move);
+  (e.target as HTMLElement).addEventListener("pointerup", up);
 }
 
 function place(n: BoardNode, el: HTMLDivElement) {
@@ -127,6 +281,9 @@ export function renderAllNodes() {
   nodesEl.replaceChildren();
   els.clear();
   editing = null;
+  editingAnnot = null;
+  for (const line of annotConnectors.values()) line.remove();
+  annotConnectors.clear();
   for (const id of state.nodes.keys()) renderNode(id);
 }
 
@@ -278,24 +435,32 @@ export function editAnnotation(nodeId: string, annotId: string) {
   const n = state.nodes.get(nodeId);
   const el = els.get(nodeId);
   const a = n?.annotations.find((x) => x.id === annotId);
-  if (!n || !el || !a) return;
+  if (!n || !el || !a || editingAnnot === annotId) return;
   const ad = el.querySelector<HTMLDivElement>(`[data-annot="${annotId}"]`);
   if (!ad) return;
+  editingAnnot = annotId;
   const textEl = ad.querySelector<HTMLDivElement>(".text")!;
   const ta = document.createElement("textarea");
   ta.value = a.text;
   ta.placeholder = "O que mudou / o que contradiz";
   textEl.replaceWith(ta);
   ta.focus();
-  ta.addEventListener("blur", () => {
+  const finish = () => {
+    if (editingAnnot !== annotId) return;
+    editingAnnot = null;
     a.text = ta.value;
+    const nb = document.createElement("div");
+    nb.className = "text";
+    ta.replaceWith(nb);
     state.saveNode(n);
-  });
+  };
+  ta.addEventListener("blur", finish);
   ta.addEventListener("keydown", (e) => {
     e.stopPropagation();
     if (e.key === "Escape" || (e.key === "Enter" && e.ctrlKey)) ta.blur();
   });
   ta.addEventListener("pointerdown", (e) => e.stopPropagation());
+  ta.addEventListener("wheel", (e) => e.stopPropagation());
 }
 
 export function addAnnotation(nodeId: string, kind: Annotation["kind"]) {
@@ -311,7 +476,12 @@ export function initNodes() {
   state.on("case-loaded", renderAllNodes);
   state.on("node", (id) => renderNode(id as string));
   state.on("node-removed", (id) => {
-    els.get(id as string)?.remove();
+    const el = els.get(id as string);
+    for (const a of el?.querySelectorAll<HTMLDivElement>("[data-annot]") ?? []) {
+      annotConnectors.get(a.dataset.annot!)?.remove();
+      annotConnectors.delete(a.dataset.annot!);
+    }
+    el?.remove();
     els.delete(id as string);
   });
   state.on("selection", () => {
@@ -319,5 +489,10 @@ export function initNodes() {
   });
   state.on("tool", () => {
     for (const el of els.values()) el.classList.toggle("link-target", state.tool.kind === "link");
+  });
+  state.on("node-moved", (id) => {
+    const n = state.nodes.get(id as string);
+    const el = els.get(id as string);
+    if (n && el) renderAnnots(n, el.querySelector(".annots")!);
   });
 }

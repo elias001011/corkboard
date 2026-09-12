@@ -134,8 +134,8 @@ input:focus, textarea:focus { border-color: var(--accent); }
 .node .body { flex: 1; padding: 10px 12px; overflow: hidden; user-select: text; cursor: text; }
 .node .body:empty::before { content: "duplo clique para escrever"; color: var(--muted); font-style: italic; }
 .node .body h1 { font-size: 17px; margin: 0 0 6px; font-weight: 600; }
-.node .body h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
-.node .body h3 { font-size: 14px; margin: 0 0 4px; font-weight: 600; color: var(--muted); }
+.node .body h2 { font-size: 23px; margin: 2px 0 8px; font-weight: 800; color: var(--accent); letter-spacing: .3px; line-height: 1.2; }
+.node .body h3 { font-size: 13px; margin: 0 0 4px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 .node .body p { margin: 0 0 4px; }
 .node .body ul { margin: 0 0 4px; padding-left: 18px; }
 .node .body mark { background: var(--mark); color: #000; padding: 0 2px; border-radius: 2px; }
@@ -205,31 +205,45 @@ input:focus, textarea:focus { border-color: var(--accent); }
 .node.drop-target { outline: 2px dashed var(--accent); }
 
 /* Anotações subjetivas */
-.annots { position: absolute; left: calc(100% + 26px); top: 0; display: flex; flex-direction: column; gap: 10px; width: 210px; }
+.annots { display: contents; }
 .annot {
-  position: relative;
+  position: absolute;
+  min-width: 140px;
+  min-height: 50px;
   background: #0d0d0d;
   border: 1px solid #2a2a2a;
   border-left: 3px solid var(--annot-color);
   border-radius: 5px;
-  padding: 8px 10px 6px;
+  padding: 0 10px 6px;
   font-size: 12px;
   user-select: text;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
 }
-.annot::before {
-  content: "";
-  position: absolute;
-  left: -27px;
-  top: 14px;
-  width: 24px;
-  border-top: 1px dashed var(--annot-color);
+.annot .kind {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--annot-color);
+  padding: 7px 0 5px;
+  cursor: grab;
 }
-.annot .kind { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--annot-color); margin-bottom: 4px; }
 .annot .text p { margin: 0 0 3px; }
+.annot .text h1 { font-size: 14px; margin: 0 0 4px; font-weight: 600; }
+.annot .text h2 { font-size: 17px; margin: 2px 0 5px; font-weight: 800; color: var(--accent); }
+.annot .text h3 { font-size: 11px; margin: 0 0 3px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
 .annot .text mark { background: var(--mark); color: #000; padding: 0 2px; }
 .annot .dates { padding: 4px 0 0; border-top: 1px solid #1e1e1e; margin-top: 4px; font-size: 10px; color: var(--muted); display: flex; gap: 8px; }
 .annot .dates:empty { display: none; }
 .annot textarea { width: 100%; min-height: 70px; background: #050505; font-size: 12px; }
+.annot .grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #444 50%, #444 60%, transparent 60%, transparent 75%, #444 75%, #444 85%, transparent 85%);
+}
 .annot.update { --annot-color: #e0b24a; }
 .annot.contradiction { --annot-color: #e05a4a; }
 

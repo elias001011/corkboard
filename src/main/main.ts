@@ -37,6 +37,18 @@ app.whenReady().then(() => {
     const allowed = details.url.startsWith("file://") || details.url.startsWith("blob:") || details.url.startsWith("data:") || details.url.startsWith("devtools://");
     cb({ cancel: !allowed });
   });
+  // Sem este handler, o Chromium usa sua heurística padrão pra downloads
+  // automáticos (sem diálogo) e bloqueia silenciosamente a partir do 2º
+  // download da mesma página. Assumindo o download aqui, sempre funciona.
+  session.defaultSession.on("will-download", (_event, item) => {
+    const dir = app.getPath("downloads");
+    let name = item.getFilename();
+    let dest = path.join(dir, name);
+    const ext = path.extname(name);
+    const base = ext ? name.slice(0, -ext.length) : name;
+    for (let i = 1; require("node:fs").existsSync(dest); i++) dest = path.join(dir, `${base} (${i})${ext}`);
+    item.setSavePath(dest);
+  });
   createWindow();
 });
 
