@@ -1,0 +1,28 @@
+{
+  "name": "corkboard",
+  "productName": "Corkboard",
+  "version": "1.0.0",
+  "description": "Quadro de investigação local: anotações, fotos e ligações, 100% offline.",
+  "main": "dist/main.js",
+  "private": true,
+  "license": "MIT",
+  "author": "Elias",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "npm run build && electron --no-sandbox .",
+    "icon": "electron --no-sandbox scripts/icon.cjs",
+    "typecheck": "tsc --noEmit",
+    "dist": "npm run build && electron-builder --linux deb"
+  },
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.0"
+  },
+  "homepage": "https://github.com/elias001011/corkboard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elias001011/corkboard.git"
+  }
+}

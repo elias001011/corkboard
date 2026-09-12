@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; object-src 'none'" />
+  <title>Corkboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="cases" class="screen"></div>
+
+  <div id="board" class="screen" hidden>
+    <div id="viewport">
+      <div id="world">
+        <svg id="under" class="layer"></svg>
+        <div id="nodes"></div>
+        <svg id="over" class="layer"></svg>
+      </div>
+    </div>
+    <div id="hud">
+      <span id="hud-case"></span>
+      <span id="hud-tool"></span>
+      <span id="hud-hint">botão direito para opções</span>
+    </div>
+  </div>
+
+  <div id="ctxmenu" class="menu" hidden></div>
+  <div id="lightbox" hidden></div>
+  <div id="modal" hidden></div>
+  <input id="file-input" type="file" accept="image/*" multiple hidden />
+  <input id="backup-input" type="file" accept=".json,application/json" hidden />
+
+  <script src="app.js"></script>
+</body>
+</html>
