@@ -12,7 +12,7 @@
     "dev": "npm run build && electron --no-sandbox .",
     "icon": "electron --no-sandbox scripts/icon.cjs",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run build && electron-builder --linux deb"
+    "dist": "npm run build && electron-builder --linux deb --publish never"
   },
   "devDependencies": {
     "electron": "^44.3.0",
