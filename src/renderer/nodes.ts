@@ -248,13 +248,11 @@ export function editNode(id: string) {
   ta.focus();
   ta.setSelectionRange(ta.value.length, ta.value.length);
   const grow = () => {
-    const extra = el.offsetHeight - ta.offsetHeight;
-    const needed = ta.scrollHeight + extra + 2;
-    if (needed > n.h) {
-      n.h = Math.min(900, needed);
-      place(n, el);
-      state.emit("node-moved", n.id);
-    }
+    const overflow = ta.scrollHeight - ta.clientHeight;
+    if (overflow <= 0) return;
+    n.h = Math.min(900, n.h + overflow);
+    place(n, el);
+    state.emit("node-moved", n.id);
   };
   ta.addEventListener("input", grow);
   const finish = () => {

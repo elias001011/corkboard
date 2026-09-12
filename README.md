@@ -38,7 +38,7 @@ No lightbox: `←` `→` navegar · `C` círculo · `S` seta · `P` caneta · `R
 Baixe o `.deb` da [página de releases](../../releases) e:
 
 ```bash
-sudo apt install ./corkboard_1.0.1_amd64.deb
+sudo apt install ./corkboard_1.0.2_amd64.deb
 ```
 
 Os dados ficam em `~/.config/corkboard/` (IndexedDB do Chromium). Faça backups pelo menu.
