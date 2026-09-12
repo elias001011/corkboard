@@ -5,6 +5,14 @@ export type Tool = { kind: "select" } | { kind: "draw"; tool: DrawTool } | { kin
 
 export type Selection = { kind: "node" | "edge" | "drawing"; id: string } | null;
 
+interface Snapshot {
+  nodes: BoardNode[];
+  edges: Edge[];
+  drawings: Drawing[];
+}
+
+const HISTORY_MAX = 200;
+
 class State {
   currentCase: Case | null = null;
   nodes = new Map<string, BoardNode>();
@@ -15,6 +23,11 @@ class State {
   tool: Tool = { kind: "select" };
   selection: Selection = null;
   drawColor = "#e05a4a";
+
+  private history: Snapshot[] = [];
+  private future: Snapshot[] = [];
+  private baseline: Snapshot = { nodes: [], edges: [], drawings: [] };
+  private lastCommit = { key: "", at: 0 };
 
   private listeners = new Map<string, Set<(payload?: unknown) => void>>();
 
@@ -36,6 +49,9 @@ class State {
     this.drawings.clear();
     this.selection = null;
     this.tool = { kind: "select" };
+    this.history = [];
+    this.future = [];
+    this.emit("history");
     const [nodes, edges, drawings] = await Promise.all([
       store.byCase<BoardNode>("nodes", c.id),
       store.byCase<Edge>("edges", c.id),
@@ -46,6 +62,7 @@ class State {
     drawings.forEach((d) => this.drawings.set(d.id, d));
     const photoIds = nodes.flatMap((n) => n.photoIds);
     await Promise.all(photoIds.map((id) => this.ensurePhoto(id)));
+    this.baseline = this.snapshot();
     this.emit("case-loaded");
   }
 
@@ -71,9 +88,79 @@ class State {
     saveDebounced("cases", this.currentCase, 1000);
   }
 
+  private snapshot(): Snapshot {
+    return structuredClone({ nodes: [...this.nodes.values()], edges: [...this.edges.values()], drawings: [...this.drawings.values()] });
+  }
+
+  /** Chamar DEPOIS de aplicar uma mutação. Chamadas seguidas com a mesma chave viram um passo só. */
+  private commit(key: string) {
+    const now = Date.now();
+    if (!(this.lastCommit.key === key && now - this.lastCommit.at < 400)) {
+      this.history.push(this.baseline);
+      if (this.history.length > HISTORY_MAX) this.history.shift();
+      this.future = [];
+    }
+    this.lastCommit = { key, at: now };
+    this.baseline = this.snapshot();
+    this.emit("history");
+  }
+
+  get canUndo() {
+    return this.history.length > 0;
+  }
+  get canRedo() {
+    return this.future.length > 0;
+  }
+
+  undo() {
+    const snap = this.history.pop();
+    if (!snap) return;
+    this.future.push(this.baseline);
+    this.apply(snap);
+  }
+
+  redo() {
+    const snap = this.future.pop();
+    if (!snap) return;
+    this.history.push(this.baseline);
+    this.apply(snap);
+  }
+
+  private apply(snap: Snapshot) {
+    this.lastCommit = { key: "", at: 0 };
+    this.selection = null;
+    const s = structuredClone(snap);
+    const sync = <T extends { id: string }>(map: Map<string, T>, next: T[], name: "nodes" | "edges" | "drawings", evt: string) => {
+      const keep = new Set(next.map((x) => x.id));
+      for (const id of [...map.keys()]) {
+        if (keep.has(id)) continue;
+        map.delete(id);
+        store.del(name, id);
+        this.emit(`${evt}-removed`, id);
+      }
+      for (const x of next) {
+        map.set(x.id, x);
+        store.put(name, x);
+      }
+      for (const x of next) this.emit(evt, x.id);
+    };
+    sync(this.nodes, s.nodes, "nodes", "node");
+    sync(this.edges, s.edges, "edges", "edge");
+    sync(this.drawings, s.drawings, "drawings", "drawing");
+    for (const n of s.nodes) {
+      const missing = n.photoIds.filter((pid) => !this.photos.has(pid));
+      if (missing.length) Promise.all(missing.map((pid) => this.ensurePhoto(pid))).then(() => this.emit("node", n.id));
+    }
+    this.baseline = snap;
+    this.touchCase();
+    this.emit("selection");
+    this.emit("history");
+  }
+
   saveNode(n: BoardNode) {
     this.nodes.set(n.id, n);
     saveDebounced("nodes", n);
+    this.commit(`node:${n.id}`);
     this.touchCase();
     this.emit("node", n.id);
   }
@@ -82,8 +169,8 @@ class State {
     if (!n) return;
     this.nodes.delete(id);
     store.del("nodes", id);
-    for (const pid of n.photoIds) this.removePhoto(pid);
-    for (const e of [...this.edges.values()]) if (e.from === id || e.to === id) this.removeEdge(e.id);
+    for (const e of [...this.edges.values()]) if (e.from === id || e.to === id) this.removeEdge(e.id, true);
+    this.commit(`remove:${id}`);
     if (this.selection?.id === id) this.selection = null;
     this.touchCase();
     this.emit("node-removed", id);
@@ -92,12 +179,15 @@ class State {
   saveEdge(e: Edge) {
     this.edges.set(e.id, e);
     saveDebounced("edges", e);
+    this.commit(`edge:${e.id}`);
     this.touchCase();
     this.emit("edge", e.id);
   }
-  removeEdge(id: string) {
+  removeEdge(id: string, silent = false) {
+    if (!this.edges.has(id)) return;
     this.edges.delete(id);
     store.del("edges", id);
+    if (!silent) this.commit(`remove:${id}`);
     if (this.selection?.id === id) this.selection = null;
     this.touchCase();
     this.emit("edge-removed", id);
@@ -106,12 +196,15 @@ class State {
   saveDrawing(d: Drawing) {
     this.drawings.set(d.id, d);
     saveDebounced("drawings", d);
+    this.commit(`drawing:${d.id}`);
     this.touchCase();
     this.emit("drawing", d.id);
   }
   removeDrawing(id: string) {
+    if (!this.drawings.has(id)) return;
     this.drawings.delete(id);
     store.del("drawings", id);
+    this.commit(`remove:${id}`);
     if (this.selection?.id === id) this.selection = null;
     this.touchCase();
     this.emit("drawing-removed", id);

@@ -16,6 +16,7 @@ const casesEl = document.getElementById("cases") as HTMLDivElement;
 const boardEl = document.getElementById("board") as HTMLDivElement;
 const hudCase = document.getElementById("hud-case") as HTMLSpanElement;
 const hudTool = document.getElementById("hud-tool") as HTMLSpanElement;
+const hudHistory = document.getElementById("hud-history") as HTMLSpanElement;
 
 const NODE_COLORS = ["#3a3a3a", "#e0b24a", "#e05a4a", "#4a90e0", "#4ac07a", "#b06ae0", "#e08a4a"];
 const DRAW_COLORS = ["#e05a4a", "#e0b24a", "#4ac07a", "#4a90e0", "#ffffff", "#b06ae0"];
@@ -151,6 +152,8 @@ function boardMenu(x: number, y: number) {
     } },
     { label: "Desenhar", sub: drawSubmenu() },
     { sep: true },
+    { label: "Desfazer", key: "Ctrl+Z", action: () => state.undo() },
+    { label: "Refazer", key: "Ctrl+Shift+Z", action: () => state.redo() },
     { label: "Centralizar", key: "Ctrl+0", action: centerOnContent },
     { sep: true },
     { label: "Exportar para IA (ZIP com .md)", action: exportForAi },
@@ -300,6 +303,12 @@ function onKey(e: KeyboardEvent) {
     else state.select(null);
   } else if (e.key === "Delete" || e.key === "Backspace") {
     deleteSelection();
+  } else if (e.ctrlKey && (e.key === "z" || e.key === "Z")) {
+    e.preventDefault();
+    e.shiftKey ? state.redo() : state.undo();
+  } else if (e.ctrlKey && (e.key === "y" || e.key === "Y")) {
+    e.preventDefault();
+    state.redo();
   } else if (e.ctrlKey && e.key === "0") {
     centerOnContent();
   } else if (e.key === "n" || e.key === "N") {
@@ -356,6 +365,9 @@ async function main() {
     viewportEl.classList.toggle("tool-link", t.kind === "link");
   });
 
+  state.on("history", () => {
+    hudHistory.textContent = state.canUndo ? `Ctrl+Z desfaz${state.canRedo ? " · Ctrl+Shift+Z refaz" : ""}` : "";
+  });
   window.addEventListener("keydown", onKey);
   window.addEventListener("paste", (e) => {
     if (boardEl.hidden || (e.target as HTMLElement).tagName === "TEXTAREA") return;
@@ -373,6 +385,7 @@ async function main() {
   });
   window.addEventListener("beforeunload", () => flushSaves());
 
+  store.collectOrphanPhotos().catch(() => {});
   const last = prefs.get("lastCase");
   const c = last ? await store.get<Case>("cases", last) : undefined;
   if (c) openCase(c);

@@ -207,7 +207,6 @@ async function removeCurrent() {
   if (!node || !p) return;
   if (!(await confirmDialog("Remover foto", `Remover "${p.name}" deste quadro? Isso apaga a foto e suas marcas.`))) return;
   node.photoIds = node.photoIds.filter((id) => id !== p.id);
-  state.removePhoto(p.id);
   state.saveNode(node);
   if (index >= node.photoIds.length) index = Math.max(0, node.photoIds.length - 1);
   if (node.photoIds.length === 0) close();

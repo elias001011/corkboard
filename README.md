@@ -11,6 +11,7 @@ Quadro de investigação local, inspirado nos painéis de detetive dos filmes e 
 - **Datas** separadas: quando você criou o quadro × de quando é a informação × quando a foto foi tirada.
 - **Desenhos** sobre o quadro para circular cards ou marcar áreas.
 - **Vários casos** (investigações), cada um com seu quadro.
+- **Desfazer/refazer** ilimitado dentro da sessão (`Ctrl+Z` / `Ctrl+Shift+Z`).
 - **Backup** exportar/importar em um único `.json` (com fotos embutidas).
 - **Export para IA**: `.zip` com um `.md` por quadro (numerados, com sub-itens `NN.1`, ligações e datas), pasta `imagens/` renomeada e um `CASO COMPLETO.md` para colar num chat.
 
@@ -24,6 +25,7 @@ Quadro de investigação local, inspirado nos painéis de detetive dos filmes e 
 | `1` `2` `3` `4` | caneta / círculo / retângulo / seta |
 | `Esc` | sair da ferramenta, cancelar ligação |
 | `Del` | excluir seleção |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | desfazer / refazer (criar, mover, editar, excluir, ligar, desenhar) |
 | `Ctrl+V` | colar print como quadro de fotos |
 | `Ctrl+0` | centralizar |
 | `F11` | tela cheia |
@@ -36,7 +38,7 @@ No lightbox: `←` `→` navegar · `C` círculo · `S` seta · `P` caneta · `R
 Baixe o `.deb` da [página de releases](../../releases) e:
 
 ```bash
-sudo apt install ./corkboard_1.0.0_amd64.deb
+sudo apt install ./corkboard_1.0.1_amd64.deb
 ```
 
 Os dados ficam em `~/.config/corkboard/` (IndexedDB do Chromium). Faça backups pelo menu.

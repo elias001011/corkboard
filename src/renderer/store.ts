@@ -83,6 +83,23 @@ export const store = {
       t.onerror = () => reject(t.error);
     });
   },
+
+  /** Apaga fotos que nenhum quadro referencia (sobras de exclusões desfeitas/refeitas). */
+  async collectOrphanPhotos(): Promise<number> {
+    const nodes = await this.getAll<BoardNode>("nodes");
+    const used = new Set(nodes.flatMap((n) => n.photoIds));
+    const d = await openDB();
+    return new Promise((resolve, reject) => {
+      const t = d.transaction("photos", "readwrite");
+      const req = t.objectStore("photos").getAllKeys();
+      let removed = 0;
+      req.onsuccess = () => {
+        for (const k of req.result) if (!used.has(String(k))) (t.objectStore("photos").delete(k), removed++);
+      };
+      t.oncomplete = () => resolve(removed);
+      t.onerror = () => reject(t.error);
+    });
+  },
 };
 
 export type { Case, BoardNode, Edge, Drawing, Photo };
@@ -100,11 +117,16 @@ export function saveDebounced(name: StoreName, value: { id: string }, ms = 300) 
   pending.set(key, { timer, name, value });
 }
 
+/** Grava tudo que está pendente sem esperar promessas — usado no beforeunload. */
 export function flushSaves() {
+  if (!db) return;
+  const names = [...new Set([...pending.values()].map((p) => p.name))];
+  if (!names.length) return;
+  const t = db.transaction(names, "readwrite");
   for (const [key, p] of pending) {
     clearTimeout(p.timer);
     pending.delete(key);
-    store.put(p.name, p.value);
+    t.objectStore(p.name).put(p.value);
   }
 }
 
