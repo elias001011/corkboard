@@ -6,7 +6,22 @@ export const worldEl = document.getElementById("world") as HTMLDivElement;
 
 export const view = { x: 0, y: 0, zoom: 1 };
 
+let movingTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Durante pan/zoom o mundo vira uma camada composta (will-change) e só é
+// transladado/escalado na GPU; 200 ms depois de parar, volta a rasterizar
+// no zoom final, para o texto ficar nítido.
+function markMoving() {
+  if (!movingTimer) worldEl.classList.add("moving");
+  clearTimeout(movingTimer);
+  movingTimer = setTimeout(() => {
+    movingTimer = undefined;
+    worldEl.classList.remove("moving");
+  }, 200);
+}
+
 export function applyView() {
+  markMoving();
   worldEl.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
   const c = state.currentCase;
   if (c) {

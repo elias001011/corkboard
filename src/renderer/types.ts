@@ -69,6 +69,8 @@ export interface Drawing {
 export interface Photo {
   id: string;
   blob: Blob;
+  /** Miniatura (≤ THUMB_MAX px) gerada uma vez; cards e grade usam ela, nunca o original. */
+  thumb?: Blob;
   name: string;
   w: number;
   h: number;

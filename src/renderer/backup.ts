@@ -47,7 +47,7 @@ export async function exportBackup() {
   ]);
   const photosJson: PhotoJson[] = [];
   for (const p of photos) {
-    const { blob, ...rest } = p;
+    const { blob, thumb: _thumb, ...rest } = p; // miniatura é regenerada ao carregar
     photosJson.push({ ...rest, type: blob.type, data: await blobToBase64(blob) });
   }
   const backup: Backup = { app: "corkboard", version: BACKUP_VERSION, exportedAt: Date.now(), cases, nodes, edges, drawings, photos: photosJson };

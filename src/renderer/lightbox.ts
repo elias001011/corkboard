@@ -227,7 +227,9 @@ function renderGrid() {
       return;
     }
     const im = document.createElement("img");
-    im.src = state.photoUrl(pid);
+    im.src = state.thumbUrl(pid);
+    im.loading = "lazy";
+    im.decoding = "async";
     im.draggable = false;
     im.alt = p.name;
     const ph = document.createElement("div");
@@ -464,5 +466,8 @@ export function initLightbox() {
     if (id === nodeId) close();
   });
   state.on("case-loaded", close);
+  state.on("thumb", () => {
+    if (!lb.hidden && mode === "grid") renderGrid();
+  });
   window.addEventListener("keydown", onKey, true);
 }

@@ -68,20 +68,52 @@ class State {
     this.emit("case-loaded");
   }
 
+  private loading = new Map<string, Promise<Photo | undefined>>();
+  thumbUrls = new Map<string, string>();
+
   async ensurePhoto(id: string): Promise<Photo | undefined> {
     if (this.photos.has(id)) return this.photos.get(id);
-    const p = await store.get<Photo>("photos", id);
-    if (p) this.cachePhoto(p);
-    return p;
+    let pending = this.loading.get(id);
+    if (!pending) {
+      pending = store.get<Photo>("photos", id).then((p) => {
+        this.loading.delete(id);
+        if (p) this.cachePhoto(p);
+        return p;
+      });
+      this.loading.set(id, pending);
+    }
+    return pending;
   }
 
   cachePhoto(p: Photo) {
     this.photos.set(p.id, p);
-    if (!this.photoUrls.has(p.id)) this.photoUrls.set(p.id, URL.createObjectURL(p.blob));
+    if (!this.thumbUrls.has(p.id) && p.thumb) this.thumbUrls.set(p.id, URL.createObjectURL(p.thumb));
+    if (!p.thumb) this.emit("thumb-missing", p.id);
   }
 
+  /** URL do original — só para o visualizador/export. Criada sob demanda. */
   photoUrl(id: string): string {
-    return this.photoUrls.get(id) ?? "";
+    const cached = this.photoUrls.get(id);
+    if (cached) return cached;
+    const p = this.photos.get(id);
+    if (!p) return "";
+    const url = URL.createObjectURL(p.blob);
+    this.photoUrls.set(id, url);
+    return url;
+  }
+
+  /** URL da miniatura (cai no original só enquanto a miniatura não existe). */
+  thumbUrl(id: string): string {
+    return this.thumbUrls.get(id) ?? this.photoUrl(id);
+  }
+
+  setThumb(p: Photo, thumb: Blob) {
+    p.thumb = thumb;
+    const old = this.thumbUrls.get(p.id);
+    if (old) URL.revokeObjectURL(old);
+    this.thumbUrls.set(p.id, URL.createObjectURL(thumb));
+    store.put("photos", p);
+    this.emit("thumb", p.id);
   }
 
   touchCase() {
@@ -221,6 +253,9 @@ class State {
     const url = this.photoUrls.get(id);
     if (url) URL.revokeObjectURL(url);
     this.photoUrls.delete(id);
+    const t = this.thumbUrls.get(id);
+    if (t) URL.revokeObjectURL(t);
+    this.thumbUrls.delete(id);
     this.photos.delete(id);
     store.del("photos", id);
   }

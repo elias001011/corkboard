@@ -4,6 +4,48 @@ import { uid, type BoardNode, type Photo } from "./types";
 
 export const MAX_PHOTOS_PER_NODE = 100;
 const MAX_PHOTO_BYTES = 40 * 1024 * 1024;
+export const THUMB_MAX = 400;
+
+/** Miniatura JPEG ≤ THUMB_MAX px. Decodifica já redimensionando, sem inflar o original na RAM. */
+export async function makeThumb(blob: Blob, w: number, h: number): Promise<Blob | null> {
+  try {
+    const scale = Math.min(1, THUMB_MAX / Math.max(w, h));
+    const tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
+    const bmp = await createImageBitmap(blob, { resizeWidth: tw, resizeHeight: th, resizeQuality: "medium" });
+    const c = document.createElement("canvas");
+    c.width = tw;
+    c.height = th;
+    c.getContext("2d")!.drawImage(bmp, 0, 0);
+    bmp.close();
+    return await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
+  } catch {
+    return null;
+  }
+}
+
+// Fotos antigas (sem miniatura) ganham uma aos poucos, uma por vez, para não travar a UI.
+const thumbQueue: string[] = [];
+let thumbBusy = false;
+async function drainThumbQueue() {
+  if (thumbBusy) return;
+  thumbBusy = true;
+  while (thumbQueue.length) {
+    const id = thumbQueue.shift()!;
+    const p = state.photos.get(id);
+    if (!p || p.thumb) continue;
+    const t = await makeThumb(p.blob, p.w, p.h);
+    if (t) state.setThumb(p, t);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  thumbBusy = false;
+}
+
+export function initPhotos() {
+  state.on("thumb-missing", (id) => {
+    if (!thumbQueue.includes(id as string)) thumbQueue.push(id as string);
+    drainThumbQueue();
+  });
+}
 
 const fileInput = document.getElementById("file-input") as HTMLInputElement;
 
@@ -24,7 +66,8 @@ function imageSize(blob: Blob): Promise<{ w: number; h: number }> {
 export async function blobToPhoto(blob: Blob, name: string): Promise<Photo | null> {
   const { w, h } = await imageSize(blob);
   if (!w || !h) return null;
-  return { id: uid(), blob, name, w, h, createdAt: Date.now(), marks: [] };
+  const thumb = (await makeThumb(blob, w, h)) ?? undefined;
+  return { id: uid(), blob, thumb, name, w, h, createdAt: Date.now(), marks: [] };
 }
 
 function describe(f: File | Blob): string {

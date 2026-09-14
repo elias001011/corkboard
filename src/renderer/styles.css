@@ -95,8 +95,10 @@ input:focus, textarea:focus { border-color: var(--accent); }
 #viewport.panning { cursor: grabbing; }
 #viewport.tool-draw { cursor: crosshair; }
 #viewport.tool-link { cursor: alias; }
-/* sem will-change: com ele o Chromium rasteriza a camada uma vez e só estica o bitmap no zoom (texto borrado) */
 #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* will-change só enquanto move: sem ele cada frame re-rasteriza tudo (lento);
+   com ele o tempo todo, o zoom só estica o bitmap (texto borrado). */
+#world.moving { will-change: transform; }
 .layer { position: absolute; left: 0; top: 0; overflow: visible; width: 1px; height: 1px; }
 #under { pointer-events: none; }
 #under .edge { pointer-events: stroke; }

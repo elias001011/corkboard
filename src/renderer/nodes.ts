@@ -42,7 +42,8 @@ function renderBody(n: BoardNode, body: HTMLDivElement) {
     const t = document.createElement("div");
     t.className = "thumb";
     const img = document.createElement("img");
-    const url = state.photoUrl(pid);
+    img.decoding = "async";
+    const url = state.thumbUrl(pid);
     if (url) img.src = url;
     else state.ensurePhoto(pid).then((p) => p && renderNode(n.id));
     img.draggable = false;
@@ -510,6 +511,9 @@ export function initNodes() {
   state.on("node-moved", (id) => {
     const n = state.nodes.get(id as string);
     const el = els.get(id as string);
-    if (n && el) renderAnnots(n, el.querySelector(".annots")!);
+    if (n && el && n.annotations.length) renderAnnots(n, el.querySelector(".annots")!);
+  });
+  state.on("thumb", (pid) => {
+    for (const n of state.nodes.values()) if (n.photoIds.slice(0, 4).includes(pid as string)) renderNode(n.id);
   });
 }

@@ -7,7 +7,7 @@ import { exportForAi } from "./exportAi";
 import { initLightbox, lightboxNodeId } from "./lightbox";
 import { confirmDialog, datesDialog, formatDate, promptText } from "./modal";
 import { addAnnotation, editAnnotation, editNode, initNodes } from "./nodes";
-import { addPhotosToNode, imagesFromClipboard, pickFiles } from "./photos";
+import { addPhotosToNode, imagesFromClipboard, initPhotos, pickFiles } from "./photos";
 import { state } from "./state";
 import { flushSaves, prefs, store } from "./store";
 import { uid, type BoardNode, type Case, type DrawTool, type NodeType } from "./types";
@@ -337,6 +337,7 @@ async function main() {
   initEdges();
   initDrawings();
   initLightbox();
+  initPhotos();
   state.drawColor = prefs.get("drawColor") ?? state.drawColor;
 
   viewportEl.addEventListener("contextmenu", (e) => {
