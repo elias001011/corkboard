@@ -6,15 +6,41 @@ files:
   - dist/**
   - build/icon.png
   - package.json
+icon: build/icon.png
+artifactName: ${name}_${version}_${os}_${arch}.${ext}
+
 linux:
   target:
     - target: deb
       arch: [x64]
+    - target: AppImage
+      arch: [x64]
   category: Office
-  icon: build/icon.png
   synopsis: Quadro de investigação local
   description: Anotações, fotos e ligações num quadro preto, 100% offline.
   artifactName: ${name}_${version}_${arch}.${ext}
 deb:
   packageCategory: editors
   maintainer: Elias <elias.juriatti@outlook.com>
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  language: 1046
+portable:
+  artifactName: ${name}_${version}_${os}_${arch}_portable.${ext}
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.productivity
+  # Sem assinatura/notarização (custa conta de desenvolvedor Apple):
+  # o Gatekeeper avisa na primeira abertura — ver README.
+  identity: null

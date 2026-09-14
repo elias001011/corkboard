@@ -37,7 +37,8 @@ function createWindow() {
     },
   });
 
-  Menu.setApplicationMenu(null);
+  // No macOS, Cmd+C/V/Z só funcionam se existir um menu com esses papéis.
+  Menu.setApplicationMenu(process.platform === "darwin" ? Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }, { role: "windowMenu" }]) : null);
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   win.webContents.on("before-input-event", (_e, input) => {

@@ -37,15 +37,18 @@ Toda exportação abre um diálogo "Salvar como" e lembra a última pasta usada.
 
 No visualizador de fotos: `←` `→` navegar · `C` círculo · `S` seta · `R` retângulo · `P` caneta · `Ctrl+Z` apagar última marca · `0` ajustar · `Del` remover · `Esc` voltar à lista.
 
-## Instalar (Ubuntu/Debian)
+## Instalar
 
-Baixe o `.deb` da [página de releases](../../releases) e:
+Baixe da [página de releases](../../releases):
 
-```bash
-sudo apt install ./corkboard_<versão>_amd64.deb
-```
+| Sistema | Arquivo | Como |
+|---|---|---|
+| Ubuntu/Debian | `corkboard_<v>_amd64.deb` | `sudo apt install ./corkboard_<v>_amd64.deb` |
+| Outras distros Linux | `corkboard_<v>_x86_64.AppImage` | `chmod +x` e executar |
+| Windows | `corkboard_<v>_win_x64.exe` (instalador) ou `…_portable.exe` | executar; o SmartScreen pode avisar (app não assinado): "Mais informações" → "Executar assim mesmo" |
+| macOS | `corkboard_<v>_mac_x64.dmg` (Intel) ou `…_arm64.dmg` (Apple Silicon) | arrastar para Aplicativos; na 1ª abertura, botão direito → Abrir (app não assinado) |
 
-Os dados ficam em `~/.config/corkboard/` (IndexedDB do Chromium). Faça backups pelo menu.
+Dados ficam na pasta de configuração do usuário (`~/.config/corkboard/` no Linux, `%APPDATA%\corkboard` no Windows, `~/Library/Application Support/corkboard` no macOS). Faça backups pelo menu.
 
 ## Desenvolver
 
@@ -53,7 +56,7 @@ Os dados ficam em `~/.config/corkboard/` (IndexedDB do Chromium). Faça backups 
 npm install
 npm run dev        # compila e abre o app
 npm run typecheck  # tsc --noEmit
-npm run dist       # gera release/corkboard_<versão>_amd64.deb
+npm run dist:linux # deb + AppImage (também dist:win / dist:mac no SO correspondente)
 ```
 
 Stack: Electron + TypeScript puro (sem framework), esbuild, electron-builder.
@@ -66,7 +69,7 @@ src/renderer/            app: canvas, cards, ligações, fotos, export, backup
 
 O renderer usa só APIs web (IndexedDB, `<input type=file>`, clipboard) e feature-detecta a ponte de salvar — sem ela, cai em download comum. Isso mantém a porta aberta para um port Android (Capacitor) com o mesmo código.
 
-Releases: crie uma tag `vX.Y.Z` (com a `version` do `package.json` igual) e o GitHub Actions compila o `.deb` e anexa à release.
+Releases: crie uma tag `vX.Y.Z` (com a `version` do `package.json` igual) e o GitHub Actions compila Linux, Windows e macOS em paralelo e anexa tudo à release.
 
 ## Segurança e privacidade
 

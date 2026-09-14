@@ -1,7 +1,7 @@
 {
   "name": "corkboard",
   "productName": "Corkboard",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Quadro de investigação local: anotações, fotos e ligações, 100% offline.",
   "main": "dist/main.js",
   "private": true,
@@ -12,7 +12,10 @@
     "dev": "npm run build && electron --no-sandbox .",
     "icon": "electron --no-sandbox scripts/icon.cjs",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run build && electron-builder --linux deb --publish never"
+    "dist": "npm run build && electron-builder --linux --publish never",
+    "dist:linux": "npm run build && electron-builder --linux --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never"
   },
   "devDependencies": {
     "electron": "^44.3.0",
