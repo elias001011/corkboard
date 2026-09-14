@@ -1,4 +1,4 @@
-appId: digital.connectabr.corkboard
+appId: io.github.elias001011.corkboard
 productName: Corkboard
 directories:
   output: release
@@ -17,4 +17,4 @@ linux:
   artifactName: ${name}_${version}_${arch}.${ext}
 deb:
   packageCategory: editors
-  maintainer: Elias <contato@connectabr.digital>
+  maintainer: Elias <elias.juriatti@outlook.com>
