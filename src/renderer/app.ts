@@ -5,7 +5,7 @@ import { initDrawings } from "./drawings";
 import { edgesTouching, initEdges, startLink } from "./edges";
 import { exportForAi } from "./exportAi";
 import { initLightbox, lightboxNodeId } from "./lightbox";
-import { confirmDialog, datesDialog, formatDate, promptText } from "./modal";
+import { confirmDialog, customAnnotDialog, datesDialog, formatDate, promptText } from "./modal";
 import { addAnnotation, editAnnotation, editNode, initNodes } from "./nodes";
 import { addPhotosToNode, imagesFromClipboard, initPhotos, pickFiles } from "./photos";
 import { state } from "./state";
@@ -185,6 +185,11 @@ function nodeMenu(id: string, x: number, y: number) {
     { label: "Anotação subjetiva", sub: [
       { label: "Atualização (info nova)", action: () => addAnnotation(id, "update") },
       { label: "Contradição (fatos conflitam)", action: () => addAnnotation(id, "contradiction") },
+      { sep: true },
+      { label: "Personalizada… (nome e cor)", action: async () => {
+        const c = await customAnnotDialog();
+        if (c) addAnnotation(id, "custom", c);
+      } },
     ] },
     { label: "Datas…", action: async () => {
       const r = await datesDialog({ createdAt: n.createdAt, infoDate: n.infoDate });
@@ -227,10 +232,18 @@ function annotMenu(nodeId: string, annotId: string, x: number, y: number) {
   showMenu(x, y, [
     { label: "Editar", key: "2× clique", action: () => editAnnotation(nodeId, annotId) },
     { label: "Ligar a…", action: () => startLink(annotId) },
-    { label: a.kind === "update" ? "Marcar como contradição" : "Marcar como atualização", action: () => {
-      a.kind = a.kind === "update" ? "contradiction" : "update";
-      state.saveNode(n);
-    } },
+    { label: "Tipo", sub: [
+      { label: "Atualização", action: () => (a.kind = "update", state.saveNode(n)) },
+      { label: "Contradição", action: () => (a.kind = "contradiction", state.saveNode(n)) },
+      { label: a.kind === "custom" ? "Personalizado (editar nome/cor)…" : "Personalizado…", action: async () => {
+        const c = await customAnnotDialog(a.kind === "custom" ? a : undefined);
+        if (!c) return;
+        a.kind = "custom";
+        a.label = c.label;
+        a.color = c.color;
+        state.saveNode(n);
+      } },
+    ] },
     { label: "Datas…", action: async () => {
       const r = await datesDialog({ createdAt: a.createdAt, infoDate: a.infoDate });
       if (!r) return;

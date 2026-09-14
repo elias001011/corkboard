@@ -12,11 +12,15 @@ export interface Case {
   viewport: Viewport;
 }
 
-export type AnnotationKind = "update" | "contradiction";
+export type AnnotationKind = "update" | "contradiction" | "custom";
 
 export interface Annotation {
   id: string;
   kind: AnnotationKind;
+  /** Nome do tipo (só para kind === "custom"), ex.: "Hipótese", "Álibi", "Fonte duvidosa". */
+  label?: string;
+  /** Cor da faixa/linha (só para kind === "custom"). */
+  color?: string;
   text: string;
   createdAt: number;
   infoDate?: string;
@@ -86,3 +90,15 @@ export interface CaseData {
 }
 
 export const uid = () => crypto.randomUUID();
+
+export const ANNOT_COLORS: Record<Exclude<AnnotationKind, "custom">, string> = { update: "#e0b24a", contradiction: "#e05a4a" };
+
+export function annotLabel(a: Pick<Annotation, "kind" | "label">): string {
+  if (a.kind === "update") return "Atualização";
+  if (a.kind === "contradiction") return "Contradição";
+  return a.label?.trim() || "Anotação";
+}
+
+export function annotColor(a: Pick<Annotation, "kind" | "color">): string {
+  return a.kind === "custom" ? a.color || "#4a90e0" : ANNOT_COLORS[a.kind];
+}

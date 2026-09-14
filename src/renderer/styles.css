@@ -312,6 +312,10 @@ input:focus, textarea:focus { border-color: var(--accent); }
 #modal label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 #modal .row { display: flex; gap: 8px; justify-content: flex-end; }
 #modal p { margin: 0; color: #bbb; white-space: pre-line; }
+#modal .swatch-row { display: flex; gap: 8px; }
+#modal .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+#modal .swatch:hover { border-color: #888; }
+#modal .swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #000 inset; }
 
 #toast {
   position: fixed;

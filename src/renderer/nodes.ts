@@ -4,7 +4,7 @@ import { renderMarkdown } from "./markdown";
 import { formatDate } from "./modal";
 import { addPhotosToNode } from "./photos";
 import { state } from "./state";
-import type { Annotation, BoardNode } from "./types";
+import { annotColor, annotLabel, type Annotation, type BoardNode } from "./types";
 
 const nodesEl = document.getElementById("nodes") as HTMLDivElement;
 const underEl = document.getElementById("under") as unknown as SVGSVGElement;
@@ -124,7 +124,8 @@ function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
       wrap.append(el);
     }
     el.className = `annot ${a.kind}`;
-    el.querySelector<HTMLDivElement>(".kind")!.textContent = a.kind === "update" ? "Atualização" : "Contradição";
+    el.style.setProperty("--annot-color", annotColor(a));
+    el.querySelector<HTMLDivElement>(".kind")!.textContent = annotLabel(a);
     if (editingAnnot !== a.id) el.querySelector<HTMLDivElement>(".text")!.innerHTML = renderMarkdown(a.text);
     el.querySelector<HTMLDivElement>(".dates")!.innerHTML = datesHtml(a.createdAt, a.infoDate);
 
@@ -159,7 +160,7 @@ function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
     line.setAttribute("y1", String(p1.y));
     line.setAttribute("x2", String(p2.x));
     line.setAttribute("y2", String(p2.y));
-    line.setAttribute("stroke", a.kind === "update" ? "#e0b24a" : "#e05a4a");
+    line.setAttribute("stroke", annotColor(a));
   }
   // Só limpa conectores de anotações que ERAM deste quadro e sumiram —
   // o mapa é global, então checar contra `seen` apagava os dos outros quadros.
@@ -481,10 +482,10 @@ export function editAnnotation(nodeId: string, annotId: string) {
   ta.addEventListener("wheel", (e) => e.stopPropagation());
 }
 
-export function addAnnotation(nodeId: string, kind: Annotation["kind"]) {
+export function addAnnotation(nodeId: string, kind: Annotation["kind"], custom?: { label: string; color: string }) {
   const n = state.nodes.get(nodeId);
   if (!n) return;
-  const a: Annotation = { id: crypto.randomUUID(), kind, text: "", createdAt: Date.now() };
+  const a: Annotation = { id: crypto.randomUUID(), kind, text: "", createdAt: Date.now(), ...(kind === "custom" ? custom : {}) };
   n.annotations.push(a);
   state.saveNode(n);
   requestAnimationFrame(() => editAnnotation(nodeId, a.id));

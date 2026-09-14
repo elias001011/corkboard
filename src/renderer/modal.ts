@@ -109,6 +109,50 @@ export function datesDialog(current: DateFields, infoLabel = "Data da informaç�
   });
 }
 
+export const ANNOT_PALETTE = ["#4a90e0", "#4ac07a", "#b06ae0", "#e08a4a", "#e0b24a", "#e05a4a", "#e6e6e6", "#8a8a8a"];
+
+/** Nome + cor de um tipo personalizado de anotação subjetiva. */
+export function customAnnotDialog(current?: { label?: string; color?: string }): Promise<{ label: string; color: string } | null> {
+  return new Promise((resolve) => {
+    let color = current?.color ?? ANNOT_PALETTE[0];
+    const input = el("input", { type: "text", value: current?.label ?? "", placeholder: "ex: Hipótese, Álibi, Fonte duvidosa, Pergunta" });
+    const swatches = el("div", { className: "swatch-row" });
+    const paint = () => {
+      for (const sw of swatches.children as HTMLCollectionOf<HTMLElement>) sw.classList.toggle("on", sw.dataset.c === color);
+    };
+    for (const c of ANNOT_PALETTE) {
+      const sw = el("div", { className: "swatch" });
+      sw.dataset.c = c;
+      sw.style.background = c;
+      sw.onclick = () => (color = c, paint());
+      swatches.append(sw);
+    }
+    paint();
+    const ok = el("button", { text: "OK", className: "primary" });
+    const cancel = el("button", { text: "Cancelar" });
+    const box = el("div", { className: "box" }, [
+      el("h3", { text: current ? "Personalizar tipo" : "Nova anotação personalizada" }),
+      el("label", {}, ["Nome do tipo (aparece na faixa do card)", input]),
+      el("label", {}, ["Cor", swatches]),
+      el("div", { className: "row" }, [cancel, ok]),
+    ]);
+    const close = open(box);
+    input.select();
+    const done = () => {
+      const label = input.value.trim();
+      if (!label) return input.focus();
+      close();
+      resolve({ label, color });
+    };
+    ok.onclick = done;
+    cancel.onclick = () => (close(), resolve(null));
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") done();
+      if (e.key === "Escape") (close(), resolve(null));
+    };
+  });
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string, ms = 4000) {
   let t = document.getElementById("toast");

@@ -1,7 +1,7 @@
 import { firstTitle } from "./markdown";
 import { formatDate } from "./modal";
 import { state } from "./state";
-import type { BoardNode, Drawing, Edge, Photo } from "./types";
+import { annotLabel, type BoardNode, type Drawing, type Edge, type Photo } from "./types";
 import { saveBlob } from "./save";
 import { ZipWriter } from "./zip";
 
@@ -106,7 +106,7 @@ export async function exportForAi() {
     if (!parent) return undefined;
     const i = parent.n.annotations.findIndex((a) => a.id === id);
     const a = parent.n.annotations[i];
-    return { n: parent.n, num: `${parent.num}.${i + 1}`, title: `${a.kind === "update" ? "Atualização" : "Contradição"} de ${parent.title}`, file: parent.file };
+    return { n: parent.n, num: `${parent.num}.${i + 1}`, title: `${annotLabel(a)} de ${parent.title}`, file: parent.file };
   };
   for (const { n } of numbered.values()) for (const a of n.annotations) owner.set(a.id, n.id);
   const belongs = (id: string, nodeId: string) => id === nodeId || owner.get(id) === nodeId;
@@ -117,7 +117,7 @@ export async function exportForAi() {
   const all: string[] = [];
 
   readme.push(`# ${c.name}`, "", `Exportado do Corkboard em ${new Date().toLocaleString("pt-BR")}.`, `Investigação criada em ${formatDate(c.createdAt)}, última edição em ${formatDate(c.updatedAt)}.`, "");
-  readme.push("## Como ler", "", "- Cada quadro do painel virou um arquivo em `quadros/`, numerado na ordem em que foi criado.", "- Sub-itens `NN.1`, `NN.2`… são **anotações subjetivas** presas ao quadro: *Atualização* = informação nova que substitui/complementa; *Contradição* = fato que conflita com o quadro.", "- `Data de criação` = quando o quadro foi escrito. `Data da informação` = de quando é o fato em si.", "- As imagens estão em `imagens/`, prefixadas pelo número do quadro. Versões `(marcado)` têm os círculos/setas desenhados por cima.", "- `CASO COMPLETO.md` junta tudo num arquivo só, para colar num chat.", "");
+  readme.push("## Como ler", "", "- Cada quadro do painel virou um arquivo em `quadros/`, numerado na ordem em que foi criado.", "- Sub-itens `NN.1`, `NN.2`… são **anotações subjetivas** presas ao quadro: *Atualização* = informação nova que substitui/complementa; *Contradição* = fato que conflita com o quadro; outros nomes são tipos criados pelo investigador.", "- `Data de criação` = quando o quadro foi escrito. `Data da informação` = de quando é o fato em si.", "- As imagens estão em `imagens/`, prefixadas pelo número do quadro. Versões `(marcado)` têm os círculos/setas desenhados por cima.", "- `CASO COMPLETO.md` junta tudo num arquivo só, para colar num chat.", "");
 
   readme.push("## Quadros", "");
   for (const { n, num, title, file } of numbered.values()) {
@@ -139,7 +139,7 @@ export async function exportForAi() {
       readme.push(`  Q${num}["${num} ${title.replace(/"/g, "'")}"]`);
       n.annotations.forEach((a, i) => {
         if (!edges.some((e) => e.from === a.id || e.to === a.id)) return;
-        readme.push(`  Q${num}_${i + 1}(["${num}.${i + 1} ${a.kind === "update" ? "Atualização" : "Contradição"}"])`);
+        readme.push(`  Q${num}_${i + 1}(["${num}.${i + 1} ${annotLabel(a).replace(/"/g, "'")}"])`);
         readme.push(`  Q${num} -.- Q${num}_${i + 1}`);
       });
     }
@@ -187,7 +187,7 @@ export async function exportForAi() {
 
     if (n.annotations.length) {
       n.annotations.forEach((a, i) => {
-        md.push(`## ${num}.${i + 1} — ${a.kind === "update" ? "Atualização" : "Contradição"}`, "");
+        md.push(`## ${num}.${i + 1} — ${annotLabel(a)}${a.kind === "custom" ? " (tipo personalizado)" : ""}`, "");
         md.push(`- Data de criação: ${formatDate(a.createdAt)}`);
         if (a.infoDate) md.push(`- Data da informação: ${a.infoDate}`);
         md.push("", a.text.trim() || "*(vazio)*", "");

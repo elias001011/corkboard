@@ -9,7 +9,7 @@ Quadro de investigação local, inspirado nos painéis de detetive dos filmes e 
 - **Anotações** em Markdown-lite: `# título`, `## super título`, `### subtítulo`, `**negrito**`, `*itálico*`, `==marca-texto==`, `- listas`.
 - **Quadros de fotos** (até 100 por quadro): clique abre a **lista** de fotos do quadro; de lá você abre o visualizador em tela cheia, com **círculos, setas, retângulos e caneta** por cima (a foto original nunca é alterada). Cole prints com `Ctrl+V` ou arraste arquivos. Formatos que o app não consegue abrir (HEIC, TIFF, RAW…) são recusados com aviso.
 - **Ligações** entre quadros — e também a partir de anotações subjetivas — com seta, rótulo e cor, formando a árvore do caso.
-- **Anotações subjetivas**: sub-quadros presos ao card, marcados como *Atualização* (info nova) ou *Contradição* (fatos conflitam). Escolhem um lado livre de ligações e podem ser arrastadas/redimensionadas.
+- **Anotações subjetivas**: sub-quadros presos ao card, marcados como *Atualização* (info nova), *Contradição* (fatos conflitam) ou um **tipo seu** (nome e cor: "Hipótese", "Álibi", "Fonte duvidosa"…). Escolhem um lado livre de ligações e podem ser arrastadas/redimensionadas.
 - **Datas** separadas: quando você criou o quadro × de quando é a informação × quando a foto foi tirada.
 - **Desenhos** sobre o quadro para circular cards ou marcar áreas.
 - **Vários casos** (investigações), cada um com seu quadro.
