@@ -20,6 +20,8 @@ class State {
   drawings = new Map<string, Drawing>();
   photos = new Map<string, Photo>();
   photoUrls = new Map<string, string>();
+  /** Caixas (coords do mundo) das anotações subjetivas renderizadas — usadas pelas ligações. */
+  annotBoxes = new Map<string, { x: number; y: number; w: number; h: number; nodeId: string }>();
   tool: Tool = { kind: "select" };
   selection: Selection = null;
   drawColor = "#e05a4a";
@@ -169,7 +171,8 @@ class State {
     if (!n) return;
     this.nodes.delete(id);
     store.del("nodes", id);
-    for (const e of [...this.edges.values()]) if (e.from === id || e.to === id) this.removeEdge(e.id, true);
+    const ends = new Set<string>([id, ...n.annotations.map((a) => a.id)]);
+    for (const e of [...this.edges.values()]) if (ends.has(e.from) || ends.has(e.to)) this.removeEdge(e.id, true);
     this.commit(`remove:${id}`);
     if (this.selection?.id === id) this.selection = null;
     this.touchCase();

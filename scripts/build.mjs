@@ -14,6 +14,16 @@ await build({
 });
 
 await build({
+  entryPoints: ["src/preload/preload.ts"],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  external: ["electron"],
+  outfile: "dist/preload.js",
+});
+
+await build({
   entryPoints: ["src/renderer/app.ts"],
   bundle: true,
   platform: "browser",

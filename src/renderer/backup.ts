@@ -1,4 +1,5 @@
 import { chooseDialog, confirmDialog } from "./modal";
+import { saveBlob } from "./save";
 import { store } from "./store";
 import { uid, type BoardNode, type Case, type Drawing, type Edge, type Photo } from "./types";
 
@@ -51,14 +52,9 @@ export async function exportBackup() {
   }
   const backup: Backup = { app: "corkboard", version: BACKUP_VERSION, exportedAt: Date.now(), cases, nodes, edges, drawings, photos: photosJson };
   const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  a.href = url;
-  a.download = `corkboard-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  await saveBlob(blob, `corkboard-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`, [{ name: "JSON", extensions: ["json"] }]);
 }
 
 function pickBackupFile(): Promise<File | null> {

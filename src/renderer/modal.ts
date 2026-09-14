@@ -109,6 +109,20 @@ export function datesDialog(current: DateFields, infoLabel = "Data da informa√ß√
   });
 }
 
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+export function toast(msg: string, ms = 4000) {
+  let t = document.getElementById("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    document.body.append(t);
+  }
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t!.hidden = true), ms);
+}
+
 export function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("pt-BR");
 }

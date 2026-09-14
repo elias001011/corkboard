@@ -42,7 +42,9 @@ function renderBody(n: BoardNode, body: HTMLDivElement) {
     const t = document.createElement("div");
     t.className = "thumb";
     const img = document.createElement("img");
-    img.src = state.photoUrl(pid);
+    const url = state.photoUrl(pid);
+    if (url) img.src = url;
+    else state.ensurePhoto(pid).then((p) => p && renderNode(n.id));
     img.draggable = false;
     t.append(img);
     if (i === max - 1 && n.photoIds.length > max) {
@@ -52,7 +54,12 @@ function renderBody(n: BoardNode, body: HTMLDivElement) {
       t.append(more);
     }
     t.addEventListener("pointerdown", (e) => e.stopPropagation());
+    t.title = "Clique: lista de fotos · duplo clique: abrir esta foto";
     t.onclick = (e) => {
+      e.stopPropagation();
+      state.emit("open-lightbox", { nodeId: n.id });
+    };
+    t.ondblclick = (e) => {
       e.stopPropagation();
       state.emit("open-lightbox", { nodeId: n.id, index: i });
     };
@@ -137,6 +144,7 @@ function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
     }
 
     const h = a.h ?? el.offsetHeight ?? 90;
+    state.annotBoxes.set(a.id, { x: n.x + x, y: n.y + y, w, h, nodeId: n.id });
     const { p1, p2 } = connectorPoints(n, x + n.x, y + n.y, w, h);
     let line = annotConnectors.get(a.id);
     if (!line) {
@@ -152,15 +160,20 @@ function renderAnnots(n: BoardNode, wrap: HTMLDivElement) {
     line.setAttribute("y2", String(p2.y));
     line.setAttribute("stroke", a.kind === "update" ? "#e0b24a" : "#e05a4a");
   }
+  // Só limpa conectores de anotações que ERAM deste quadro e sumiram —
+  // o mapa é global, então checar contra `seen` apagava os dos outros quadros.
   for (const el of [...wrap.children] as HTMLDivElement[]) {
-    if (!seen.has(el.dataset.annot!)) el.remove();
+    const id = el.dataset.annot!;
+    if (seen.has(id)) continue;
+    el.remove();
+    removeAnnotConnector(id);
   }
-  for (const [id, line] of [...annotConnectors]) {
-    if (!seen.has(id)) {
-      line.remove();
-      annotConnectors.delete(id);
-    }
-  }
+}
+
+function removeAnnotConnector(id: string) {
+  annotConnectors.get(id)?.remove();
+  annotConnectors.delete(id);
+  state.annotBoxes.delete(id);
 }
 
 function wireAnnot(el: HTMLDivElement, nodeId: string) {
@@ -175,9 +188,12 @@ function wireAnnot(el: HTMLDivElement, nodeId: string) {
     e.stopPropagation();
     state.emit("ctx", { kind: "annot", nodeId, annotId, x: e.clientX, y: e.clientY });
   });
-  el.addEventListener("pointerdown", (e) => e.stopPropagation());
+  el.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    if (e.button === 0 && state.tool.kind === "link") state.emit("link-target", annotId);
+  });
   el.querySelector<HTMLDivElement>(".kind")!.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || state.tool.kind === "link") return;
     e.stopPropagation();
     startAnnotDrag(e, nodeId, annotId);
   });
@@ -201,6 +217,7 @@ function startAnnotDrag(e: PointerEvent, nodeId: string, annotId: string) {
     a.dx = Math.round(ox + (p.x - start.x));
     a.dy = Math.round(oy + (p.y - start.y));
     renderNode(nodeId);
+    state.emit("node-moved", nodeId);
   };
   const up = () => {
     (e.target as HTMLElement).removeEventListener("pointermove", move);
@@ -227,6 +244,7 @@ function startAnnotResize(e: PointerEvent, nodeId: string, annotId: string) {
     a.w = Math.max(140, Math.round(ow + p.x - start.x));
     a.h = Math.max(50, Math.round(oh + p.y - start.y));
     renderNode(nodeId);
+    state.emit("node-moved", nodeId);
   };
   const up = () => {
     (e.target as HTMLElement).removeEventListener("pointermove", move);
@@ -282,8 +300,7 @@ export function renderAllNodes() {
   els.clear();
   editing = null;
   editingAnnot = null;
-  for (const line of annotConnectors.values()) line.remove();
-  annotConnectors.clear();
+  for (const id of [...annotConnectors.keys()]) removeAnnotConnector(id);
   for (const id of state.nodes.keys()) renderNode(id);
 }
 
@@ -477,10 +494,7 @@ export function initNodes() {
   state.on("node", (id) => renderNode(id as string));
   state.on("node-removed", (id) => {
     const el = els.get(id as string);
-    for (const a of el?.querySelectorAll<HTMLDivElement>("[data-annot]") ?? []) {
-      annotConnectors.get(a.dataset.annot!)?.remove();
-      annotConnectors.delete(a.dataset.annot!);
-    }
+    for (const a of el?.querySelectorAll<HTMLDivElement>("[data-annot]") ?? []) removeAnnotConnector(a.dataset.annot!);
     el?.remove();
     els.delete(id as string);
   });
@@ -488,7 +502,10 @@ export function initNodes() {
     for (const [id, el] of els) el.classList.toggle("selected", state.selection?.kind === "node" && state.selection.id === id);
   });
   state.on("tool", () => {
-    for (const el of els.values()) el.classList.toggle("link-target", state.tool.kind === "link");
+    for (const el of els.values()) {
+      el.classList.toggle("link-target", state.tool.kind === "link");
+      for (const a of el.querySelectorAll(".annot")) a.classList.toggle("link-target", state.tool.kind === "link");
+    }
   });
   state.on("node-moved", (id) => {
     const n = state.nodes.get(id as string);

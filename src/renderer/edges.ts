@@ -1,6 +1,24 @@
 import { toWorld, viewportEl } from "./canvas";
 import { state } from "./state";
-import { uid, type BoardNode, type Edge } from "./types";
+import { uid, type Edge } from "./types";
+
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Caixa de um endpoint de ligação: quadro ou anotação subjetiva. */
+export function boxOf(id: string): Box | undefined {
+  return state.nodes.get(id) ?? state.annotBoxes.get(id);
+}
+
+/** Quadro dono do endpoint (o próprio, ou o pai da anotação). */
+export function ownerNodeId(id: string): string | undefined {
+  if (state.nodes.has(id)) return id;
+  return state.annotBoxes.get(id)?.nodeId;
+}
 
 const SVG = "http://www.w3.org/2000/svg";
 const underEl = document.getElementById("under") as unknown as SVGSVGElement;
@@ -16,7 +34,7 @@ function ensureDefs() {
   underEl.prepend(defs);
 }
 
-function anchor(n: BoardNode, towards: { x: number; y: number }) {
+function anchor(n: Box, towards: { x: number; y: number }) {
   const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
   const dx = towards.x - cx, dy = towards.y - cy;
   if (Math.abs(dx) * n.h > Math.abs(dy) * n.w) {
@@ -25,7 +43,7 @@ function anchor(n: BoardNode, towards: { x: number; y: number }) {
   return dy > 0 ? { x: cx, y: n.y + n.h, side: "b" } : { x: cx, y: n.y, side: "t" };
 }
 
-export function edgePath(a: BoardNode, b: BoardNode): { d: string; mid: { x: number; y: number } } {
+export function edgePath(a: Box, b: Box): { d: string; mid: { x: number; y: number } } {
   const ca = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
   const cb = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
   const p1 = anchor(a, cb), p2 = anchor(b, ca);
@@ -44,9 +62,12 @@ export function renderEdge(id: string) {
   ensureDefs();
   const e = state.edges.get(id);
   if (!e) return;
-  const a = state.nodes.get(e.from), b = state.nodes.get(e.to);
-  if (!a || !b) return;
+  const a = boxOf(e.from), b = boxOf(e.to);
   let g = groups.get(id);
+  if (!a || !b) {
+    if (g) g.style.display = "none";
+    return;
+  }
   if (!g) {
     g = document.createElementNS(SVG, "g");
     g.innerHTML = `<path class="edge-hit"/><path class="edge" marker-end="url(#arrow)"/><rect class="edge-label-bg" rx="3"/><text class="edge-label" text-anchor="middle"/>`;
@@ -65,6 +86,7 @@ export function renderEdge(id: string) {
       state.select({ kind: "edge", id });
     });
   }
+  g.style.display = "";
   const { d, mid } = edgePath(a, b);
   const [hit, path, bg, text] = [...g.children] as [SVGPathElement, SVGPathElement, SVGRectElement, SVGTextElement];
   hit.setAttribute("d", d);
@@ -92,8 +114,16 @@ export function renderAllEdges() {
   for (const id of state.edges.keys()) renderEdge(id);
 }
 
+/** Ligações que tocam o quadro OU qualquer anotação subjetiva dele. */
 export function edgesOf(nodeId: string): Edge[] {
-  return [...state.edges.values()].filter((e) => e.from === nodeId || e.to === nodeId);
+  const ids = new Set<string>([nodeId]);
+  for (const a of state.nodes.get(nodeId)?.annotations ?? []) ids.add(a.id);
+  return [...state.edges.values()].filter((e) => ids.has(e.from) || ids.has(e.to));
+}
+
+/** Ligações que tocam exatamente este endpoint (quadro ou anotação). */
+export function edgesTouching(id: string): Edge[] {
+  return [...state.edges.values()].filter((e) => e.from === id || e.to === id);
 }
 
 let rubber: SVGPathElement | null = null;
@@ -104,7 +134,7 @@ export function startLink(fromId: string) {
   rubber.setAttribute("class", "rubber");
   overEl.append(rubber);
   const move = (ev: PointerEvent) => {
-    const from = state.nodes.get(fromId);
+    const from = boxOf(fromId);
     if (!from || !rubber) return;
     const p = toWorld(ev.clientX, ev.clientY);
     const a = anchor(from, p);
@@ -120,7 +150,9 @@ export function startLink(fromId: string) {
     state.setTool({ kind: "select" });
   };
   const onTarget = (toId: unknown) => {
-    if (typeof toId === "string" && toId !== fromId) {
+    // Não liga uma anotação ao próprio quadro pai (já tem a linha pontilhada).
+    const sameFamily = typeof toId === "string" && ownerNodeId(toId) === ownerNodeId(fromId);
+    if (typeof toId === "string" && toId !== fromId && !sameFamily) {
       const exists = [...state.edges.values()].some((e) => (e.from === fromId && e.to === toId) || (e.from === toId && e.to === fromId));
       if (!exists) state.saveEdge({ id: uid(), caseId: state.currentCase!.id, from: fromId, to: toId });
     }

@@ -2,9 +2,9 @@ import { exportBackup, importBackup } from "./backup";
 import { centerOnContent, initCanvas, setView, toWorld, viewportEl } from "./canvas";
 import { showMenu, type MenuItem } from "./contextmenu";
 import { initDrawings } from "./drawings";
-import { initEdges, startLink } from "./edges";
+import { edgesTouching, initEdges, startLink } from "./edges";
 import { exportForAi } from "./exportAi";
-import { initLightbox } from "./lightbox";
+import { initLightbox, lightboxNodeId } from "./lightbox";
 import { confirmDialog, datesDialog, formatDate, promptText } from "./modal";
 import { addAnnotation, editAnnotation, editNode, initNodes } from "./nodes";
 import { addPhotosToNode, imagesFromClipboard, pickFiles } from "./photos";
@@ -117,7 +117,8 @@ function createNode(type: NodeType, x: number, y: number): BoardNode {
 
 async function pasteImages(files: File[], at?: { x: number; y: number }) {
   if (!files.length || !state.currentCase) return;
-  const sel = state.selection?.kind === "node" ? state.nodes.get(state.selection.id) : undefined;
+  const lbNode = lightboxNodeId();
+  const sel = lbNode ? state.nodes.get(lbNode) : state.selection?.kind === "node" ? state.nodes.get(state.selection.id) : undefined;
   let target = sel?.type === "photos" ? sel : undefined;
   if (!target) {
     const r = viewportEl.getBoundingClientRect();
@@ -174,7 +175,7 @@ function nodeMenu(id: string, x: number, y: number) {
   const items: MenuItem[] = [];
   if (n.type === "photos") {
     items.push({ label: "Adicionar fotos…", action: async () => addPhotosToNode(n, await pickFiles()) });
-    if (n.photoIds.length) items.push({ label: "Ver fotos", action: () => state.emit("open-lightbox", { nodeId: id, index: 0 }) });
+    items.push({ label: "Lista de fotos", action: () => state.emit("open-lightbox", { nodeId: id }) });
     items.push({ label: "Editar legenda", action: () => editNode(id) });
   } else {
     items.push({ label: "Editar", key: "2× clique", action: () => editNode(id) });
@@ -225,6 +226,7 @@ function annotMenu(nodeId: string, annotId: string, x: number, y: number) {
   if (!n || !a) return;
   showMenu(x, y, [
     { label: "Editar", key: "2× clique", action: () => editAnnotation(nodeId, annotId) },
+    { label: "Ligar a…", action: () => startLink(annotId) },
     { label: a.kind === "update" ? "Marcar como contradição" : "Marcar como atualização", action: () => {
       a.kind = a.kind === "update" ? "contradiction" : "update";
       state.saveNode(n);
@@ -238,6 +240,7 @@ function annotMenu(nodeId: string, annotId: string, x: number, y: number) {
     } },
     { sep: true },
     { label: "Excluir", danger: true, action: () => {
+      for (const e of edgesTouching(annotId)) state.removeEdge(e.id, true);
       n.annotations = n.annotations.filter((z) => z.id !== annotId);
       state.saveNode(n);
     } },

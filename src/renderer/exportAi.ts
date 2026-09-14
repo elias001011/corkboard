@@ -2,6 +2,7 @@ import { firstTitle } from "./markdown";
 import { formatDate } from "./modal";
 import { state } from "./state";
 import type { BoardNode, Drawing, Edge, Photo } from "./types";
+import { saveBlob } from "./save";
 import { ZipWriter } from "./zip";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -95,6 +96,21 @@ export async function exportForAi() {
     numbered.set(n.id, { n, num, title, file: `${num} - ${safeName(title)}.md` });
   });
 
+  // Endpoints de ligação podem ser quadros ("03") ou anotações subjetivas ("03.2").
+  const owner = new Map<string, string>();
+  const refOf = (id: string): Numbered | undefined => {
+    const direct = numbered.get(id);
+    if (direct) return direct;
+    const parentId = owner.get(id);
+    const parent = parentId ? numbered.get(parentId) : undefined;
+    if (!parent) return undefined;
+    const i = parent.n.annotations.findIndex((a) => a.id === id);
+    const a = parent.n.annotations[i];
+    return { n: parent.n, num: `${parent.num}.${i + 1}`, title: `${a.kind === "update" ? "Atualização" : "Contradição"} de ${parent.title}`, file: parent.file };
+  };
+  for (const { n } of numbered.values()) for (const a of n.annotations) owner.set(a.id, n.id);
+  const belongs = (id: string, nodeId: string) => id === nodeId || owner.get(id) === nodeId;
+
   const zip = new ZipWriter();
   const root = safeName(c.name);
   const readme: string[] = [];
@@ -114,15 +130,22 @@ export async function exportForAi() {
   if (edges.length) {
     readme.push("## Ligações", "");
     for (const e of edges) {
-      const a = numbered.get(e.from), b = numbered.get(e.to);
+      const a = refOf(e.from), b = refOf(e.to);
       if (!a || !b) continue;
       readme.push(`- ${a.num} ${a.title} → ${b.num} ${b.title}${e.label ? ` — *${e.label}*` : ""}`);
     }
     readme.push("", "```mermaid", "graph LR");
-    for (const { num, title } of numbered.values()) readme.push(`  Q${num}["${num} ${title.replace(/"/g, "'")}"]`);
+    for (const { n, num, title } of numbered.values()) {
+      readme.push(`  Q${num}["${num} ${title.replace(/"/g, "'")}"]`);
+      n.annotations.forEach((a, i) => {
+        if (!edges.some((e) => e.from === a.id || e.to === a.id)) return;
+        readme.push(`  Q${num}_${i + 1}(["${num}.${i + 1} ${a.kind === "update" ? "Atualização" : "Contradição"}"])`);
+        readme.push(`  Q${num} -.- Q${num}_${i + 1}`);
+      });
+    }
     for (const e of edges) {
-      const a = numbered.get(e.from), b = numbered.get(e.to);
-      if (a && b) readme.push(`  Q${a.num} -->${e.label ? `|${e.label.replace(/\|/g, "/")}|` : ""} Q${b.num}`);
+      const a = refOf(e.from), b = refOf(e.to);
+      if (a && b) readme.push(`  Q${a.num.replace(".", "_")} -->${e.label ? `|${e.label.replace(/\|/g, "/")}|` : ""} Q${b.num.replace(".", "_")}`);
     }
     readme.push("```", "");
   }
@@ -171,17 +194,18 @@ export async function exportForAi() {
       });
     }
 
-    const out = edges.filter((e) => e.from === n.id), inc = edges.filter((e) => e.to === n.id);
+    const out = edges.filter((e) => belongs(e.from, n.id)), inc = edges.filter((e) => belongs(e.to, n.id));
     if (out.length || inc.length) {
       md.push("## Ligações", "");
-      const line = (e: Edge, other: Numbered, dir: "→" | "←") => `- ${dir} [${other.num} — ${other.title}](${href(other.file)})${e.label ? ` — *${e.label}*` : ""}`;
+      const line = (e: Edge, self: Numbered, other: Numbered, dir: "→" | "←") =>
+        `- ${self.num !== num ? `(${self.num}) ` : ""}${dir} [${other.num} — ${other.title}](${href(other.file)})${e.label ? ` — *${e.label}*` : ""}`;
       for (const e of out) {
-        const o = numbered.get(e.to);
-        if (o) md.push(line(e, o, "→"));
+        const me = refOf(e.from), o = refOf(e.to);
+        if (me && o) md.push(line(e, me, o, "→"));
       }
       for (const e of inc) {
-        const o = numbered.get(e.from);
-        if (o) md.push(line(e, o, "←"));
+        const me = refOf(e.to), o = refOf(e.from);
+        if (me && o) md.push(line(e, me, o, "←"));
       }
       md.push("");
     }
@@ -195,12 +219,7 @@ export async function exportForAi() {
   await zip.add(`${root}/README.md`, readmeText);
   await zip.add(`${root}/CASO COMPLETO.md`, [readmeText, "", "---", "", all.join("\n\n---\n\n")].join("\n"));
 
-  const blob = zip.finish();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
   const d = new Date();
-  a.href = url;
-  a.download = `${root} - export IA ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const name = `${root} - export IA ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}h${pad(d.getMinutes())}.zip`;
+  await saveBlob(zip.finish(), name, [{ name: "ZIP", extensions: ["zip"] }]);
 }
